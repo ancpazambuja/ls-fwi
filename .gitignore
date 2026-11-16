@@ -1,0 +1,39 @@
+__pycache__/
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+
+# Environments
+.venv/
+venv/
+env/
+
+# Jupyter & Editors
+.ipynb_checkpoints/
+.vscode/
+.idea/
+*.swp
+
+# ML, Data & Logs
+checkpoints/
+wandb/
+runs/
+logs/
+*.log
+*.pt
+*.pth
+*.ckpt
+*.h5
+*.npy
+*.npz
+*.segy
+*.sgy
+
+# Secrets
+.env
+*.pem
+*.key
