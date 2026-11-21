@@ -2,23 +2,35 @@
 
 ## Smoke run (software validation)
 
-Runs the real entry point on a few samples to validate the environment,
+Runs the real entry points on a few samples to validate the environment,
 data loading, preprocessing, training and MLflow logging. Requires the
 reference container (see [Installation](installation.md)) and access to the
-cluster datasets.
+cluster datasets. The one-command way is the harness's own validator:
+
+```bash
+bash scripts/validate_smoke.sh   # inside the container; STAGES env selects stages
+```
+
+It logs to the `encdec.highres.smoke*` experiments — the project's
+**permanent test sandbox** (kept, never deleted; all future smoke runs
+accumulate there). A fully manual single-stage equivalent, also logging to
+the smoke sandbox:
 
 ```bash
 cd /workspace   # repository root, bind-mounted in the container
 
 PYTHONPATH=$PWD python src/apps/grid_search_parallel.py \
     --label_id=SMOKE \
-    --experiment_tracking_uri=file:///workspace/mlruns \
-    --experiment_tracking_name=smoke \
+    --experiment_tracking_uri=http://gr14sm02.ep.petrobras.com.br:31947/ \
+    --experiment_tracking_name=encdec.highres.smoke \
     --dataset_type=deep --dataset_resolution=high \
     --model_arch=encdec --conv_filter_size_x=3 --conv_filter_size_z=3 \
     --max_epochs=1 --dataset_max_samples=8 --test_perc=0.25 --cv=2 \
     --seed=0 --device=cuda:0 --verbose_level=1
 ```
+
+(For a fully self-contained test with no server, replace the tracking URI
+with a `file://` store.)
 
 **What you should see:**
 

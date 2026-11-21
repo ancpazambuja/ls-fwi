@@ -24,6 +24,9 @@
 #   DEVICE  CUDA_ID                  [cuda:all  unset]
 #   GS_EPOCHS REFIT_EPOCHS INV_EPOCHS [1 1 2]
 #   SMOKE_TAG    MLflow experiment suffix ["smoke"]
+#                CONVENTION: the *smoke* experiments are the project's
+#                permanent test sandbox — they are kept, never deleted;
+#                all future smoke/validation runs log there.
 #   STAGES       stages to run
 #   FALLBACK_REFIT_RUN_ID / FALLBACK_SEED
 #                if the gs->refit chain fails, downstream stages use this

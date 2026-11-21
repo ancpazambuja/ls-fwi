@@ -53,6 +53,20 @@ Experiments follow `encdec.highres.<stage>[.seed.<s>]`:
 `<arch>.<res>.inference`, `<arch>.<res>.inversion` — overridable via
 `GS_EXPERIMENT` / `REFIT_EXPERIMENT` / `INF_EXPERIMENT` / `INV_EXPERIMENT`.
 
+### Smoke experiments (project convention)
+
+All smoke/validation runs log to the `*smoke*` experiments:
+`<arch>.<res>res.smoke`, `<arch>.<res>res.smoke.refit`,
+`<arch>.<res>res.smoke.inference`, `<arch>.<res>res.smoke.inversion`
+(default `SMOKE_TAG=smoke` in `scripts/validate_smoke.sh`).
+
+These experiments are the project's **permanent test sandbox**: they are
+kept (never deleted), and runs from repeated validations accumulate there.
+They are clearly separated from the real experiments, which never carry the
+`smoke` tag. Smoke refit checkpoints are likewise identifiable by their
+`REFIT__ENCDEC_REFIT_...` names and timestamps inside the checkpoint
+directory.
+
 ## Layout and history
 
 The harness replaced the pre-harness launchers that lived under
