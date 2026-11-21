@@ -162,6 +162,7 @@ if __name__ == "__main__":
         refit_experiment_tracking_name=args.refit_experiment_tracking_name,
         model_path=args.model_path,
         label_id=args.label_id,
+        seed=args.seed,
         use_transformer=args.model_arch == "transencdec",
     )
 

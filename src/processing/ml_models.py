@@ -525,6 +525,20 @@ class GeneratorInversion(nn.Module):
 
         self.latent = nn.Parameter(latent)
 
+    def train(self, mode: bool = True):
+        """Keep the frozen generator in eval mode during optimization.
+
+        skorch sets the whole module to train mode on every training step
+        (skorch.net.train_step_single -> _set_training(True)), which would
+        activate the decoder's dropout and make BatchNorm use (and update)
+        batch statistics with batch_size=1. The generator is frozen, so the
+        latent must be optimized against the deterministic generator stored
+        in the checkpoint: pin it to eval mode after every train() call.
+        """
+        super().train(mode)
+        self.generator.eval()
+        return self
+
     def forward(self, X):
         # X is ignored.
         # The trainable object is self.latent.

@@ -859,6 +859,11 @@ class InferenceTaskProcessing(RefitTaskProcessing):
         z.mean, z.std, z.full, y_hat and y.
         """
 
+        # generator.predict() returns numpy; the inversion history path
+        # passes torch tensors. Accept both.
+        if not torch.is_tensor(generated_outputs):
+            generated_outputs = torch.as_tensor(generated_outputs)
+
         z_flat = interpolated_latents.reshape(interpolated_latents.shape[0], -1)
         vrange = torch.quantile( z_flat.abs(), q=0.99, dim=1)
         z_min = -vrange
@@ -1098,12 +1103,17 @@ class InferenceTaskProcessing(RefitTaskProcessing):
             log.info(f"type of grid = {type(grid)}")
             log.info(f"grid = {grid}")
 
+        # NOTE: the inference app passes FLAT grid items (InferenceGrid);
+        # the inversion app nests them under 'inference_grid' (InversionGrid).
+        # Accept both shapes.
+        item_grid = grid.get("inference_grid", grid)
+
         autoencoder = ScoredSkorchModel(
             module=EncoderDecoder,
             device=device,
             callbacks=cb,
             seed=self.g.gvars.get_seed(),
-            **grid["inference_grid"]["skorch_model_params"][0]
+            **item_grid["skorch_model_params"][0]
         )
 
         autoencoder.initialize()
@@ -1118,7 +1128,7 @@ class InferenceTaskProcessing(RefitTaskProcessing):
             print(autoencoder.module_.summary(input_size=input_size))
 
         autoencoder.load_params(
-            f_params=grid["inference_grid"]["weights_files"][0],
+            f_params=item_grid["weights_files"][0],
 #            f_optimizer=grid["optimizer_file"],
 #            f_criterion=grid["criterion_file"],
         )

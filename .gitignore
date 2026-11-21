@@ -37,3 +37,11 @@ logs/
 .env
 *.pem
 *.key
+
+# Experiment working tree (schema doc tracked, run outputs not — see
+# experiments/README.md)
+experiments/*
+!experiments/README.md
+mlruns/
+*.out
+*.err

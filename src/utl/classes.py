@@ -498,17 +498,9 @@ class Utils:
             )
         )
 
-        print_every = global_vars.get_max_epochs() // 12
-        training_history_cb = (
-           'training_history',
-            MLModelsUtils.get_skorch_inversion_history_callback(
-                history_dict=global_vars.get_training_history(), print_every=print_every
-            )
-        )
-
         refit_param_logger_cb = ParamLogger()
         #loadInitState_cb = MLModelsUtils.get_skorch_loadInitState_callback(checkpoint_cb)
-       
+
         gs_cb_list = [
             ('mlflow_logger', gs_mlflow_logger_cb),#, param_logger_cb
             ('lr_scheduler', lr_scheduler_cb),
@@ -518,7 +510,7 @@ class Utils:
         ]
 
         refit_cb_list = [
-            ('mlflow_logger', refit_mlflow_logger_cb), 
+            ('mlflow_logger', refit_mlflow_logger_cb),
             ('lr_scheduler', lr_scheduler_cb),
             ('lr_scheduler_debbuger', lr_scheduler_debuger_cb),
             ('grad_clip',grad_norm_callback),
@@ -531,6 +523,18 @@ class Utils:
             refit_cb_list.append(refit_early_stopping_cb)
         else:
             log.debug(f"NOT setting checkpoint callback")
+            # NOTE: the training-history callback (which follows the latent
+            # optimization) requires InversionGlobalVars; building it here —
+            # only for inversion — keeps grid search and refit working.
+            # max(..., 1) keeps small epoch budgets (smoke tests) from
+            # producing print_every = 0 (modulo by zero).
+            print_every = max(global_vars.get_max_epochs() // 12, 1)
+            training_history_cb = (
+               'training_history',
+                MLModelsUtils.get_skorch_inversion_history_callback(
+                    history_dict=global_vars.get_training_history(), print_every=print_every
+                )
+            )
             refit_cb_list.append(training_history_cb)
 
         if not is_one_step_training:
