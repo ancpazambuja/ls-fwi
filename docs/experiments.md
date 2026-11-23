@@ -46,6 +46,75 @@ GPUS=0,1,2,3 PARALLEL=1 \
     bash scripts/run_lot_inversion.sh
 ```
 
+## Running on the cluster (GPU nodes)
+
+Experiments run inside the reference container on allocated GPU nodes (see
+[Installation](installation.md)). The cluster storage and the repository's
+parent directory are bind-mounted at the **same absolute paths inside the
+container**, so every path in the harness (`/gemini/...`, the repository
+itself) works unchanged; all launchers self-locate the repository
+(`REPO_ROOT`), so nothing is hardcoded to a checkout location.
+
+Two invocation modes:
+
+```bash
+# interactive shell
+singularity run --nv -e --bind <storage-binds> <image.sif> bash -i
+
+# scripted / non-interactive — note: `run` does not forward arguments to a
+# command; use `exec`:
+singularity exec --nv -e --bind <storage-binds> <image.sif> bash -c 'bash <repo>/scripts/...'
+```
+
+Long-running stages should be launched from a persistent session (`tmux`/
+`screen`) or with `nohup`: the console output goes to `<label_id>.out` /
+`<label_id>.err` inside the case directory, so progress can be followed
+with `tail -f` from any machine sharing the filesystem.
+
+### End-to-end recipe (a real experiment)
+
+1. **Grid search** — one case per configuration:
+   ```bash
+   ARCH=encdec RES=high K=5 DATASET=deep SEED=0 bash scripts/run_grid_search.sh
+   ```
+   Results are logged as MLflow **subruns** (`hpset_<i>`, one per grid
+   element) under the task run.
+2. **Pick the best configuration** — in the MLflow UI, open the grid-search
+   experiment and select the `hpset_*` subrun with the highest
+   `mean_valid_score` (the negated cross-validation loss, so higher is
+   better); its run id is the `gs_best_run_id`. Programmatically:
+   ```python
+   import mlflow
+   mlflow.set_tracking_uri("<tracking-uri>")
+   c = mlflow.tracking.MlflowClient()
+   e = c.get_experiment_by_name("encdec.highres.gs")
+   runs = c.search_runs([e.experiment_id],
+                        filter_string="tags.`mlflow.runName` LIKE 'hpset%'",
+                        order_by=["metrics.mean_valid_score DESC"])
+   print(runs[0].info.run_id)  # -> gs_best_run_id
+   ```
+3. **Refit** — once per MCCV seed (the ten seeds live in
+   `scripts/seeds.txt`); the refit run stores all architecture attributes
+   consumed downstream:
+   ```bash
+   for SEED in $(cat scripts/seeds.txt); do
+     ARCH=encdec RES=high K=5 DATASET=deep SEED=$SEED \
+     BEST_RUN_ID=<gs_best_run_id> BEST_RUN_EXPERIMENT=encdec.highres.gs \
+         bash scripts/run_refit.sh
+   done
+   ```
+4. **Inference** (latent-space characterization) — one call per refit run:
+   ```bash
+   ARCH=encdec RES=high DATASET=deep SEED=<refit-seed> \
+   REFIT_RUN_ID=<refit-run-id> \
+   REFIT_EXPERIMENT=encdec.highres.refit.seed.<refit-seed> \
+       bash scripts/run_inference.sh
+   ```
+5. **Inversion** (direct latent recovery) — single cases with
+   `scripts/run_inversion.sh`, or the epochs × lr × latent-init sweep with
+   `scripts/run_lot_inversion.sh` (see its header for knobs; `GPUS=0,1,2,3
+   PARALLEL=1` dispatches one concurrent job per GPU).
+
 ## MLflow naming
 
 Experiments follow `encdec.highres.<stage>[.seed.<s>]`:

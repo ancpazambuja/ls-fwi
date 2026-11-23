@@ -45,3 +45,6 @@ experiments/*
 mlruns/
 *.out
 *.err
+
+# In-house working notes (developer-specific, never published)
+LOCAL_ENVIRONMENT.md
