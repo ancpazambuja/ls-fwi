@@ -228,6 +228,9 @@ def main():
             winner = rs[-1]
         winner["kept_in_clean_set"] = True
         kept.append(winner)
+    for row in rows:   # non-kept sweep rows are explicit False (never empty)
+        if row["group"] == "sweep_full_samples" and row["kept_in_clean_set"] == "":
+            row["kept_in_clean_set"] = False
 
     counts = defaultdict(int)
     for row in rows:
