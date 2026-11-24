@@ -48,3 +48,6 @@ mlruns/
 
 # In-house working notes (developer-specific, never published)
 LOCAL_ENVIRONMENT.md
+
+# Fast-fail analysis extract (regenerable: notebooks/data/extract_from_mlflow.py)
+notebooks/data/*.csv
