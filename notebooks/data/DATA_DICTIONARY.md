@@ -38,6 +38,10 @@ are duplicates, flagged `False` (they remain in MLflow — the `random`-init
 duplicates are distinct latent draws, relevant to the ADR-0002 J-draws
 protocol). 460 = 365 + 68 + 3 + 24.
 
+The notebook's analysis set further restricts `kept` to the **320 grid
+combos** (user decision 2026-11-24): the exploratory 200-ep probe is
+excluded from aggregates and shown as budget-curve evidence only.
+
 ## `runs.csv` (461 lines; one row per run, ALL runs)
 
 - `run_id`, `run_name`, `status`, `start_time_iso`, `start_time_ms` — identity.

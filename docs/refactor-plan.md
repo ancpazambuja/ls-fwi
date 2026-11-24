@@ -78,7 +78,10 @@ data), never the training repo. Training runs record the
   it is problematic (44 duplicates dropped; verified — 0 problematic
   last-runs, all 18 invalid-final-metric runs were debug runs). Clean
   analysis set: 321 combos = complete 4×5×4 grid × 4 refit models (320)
-  + 1 exploratory (`trained, lr=1.0, 200ep`). Dropped duplicates
+  + 1 exploratory (`trained, lr=1.0, 200ep`; it fits the monotone budget
+  trend 0.0044→0.0037 of its config). User decision 2026-11-24: the
+  notebook's analysis set = the 320 grid combos; the probe stays as
+  budget-curve evidence only. Dropped duplicates
   (mostly `random` inits = distinct latent draws, plus lr=0.5/1.0
   re-runs) stay in MLflow for the ADR-0002 J-draws protocol.
 
