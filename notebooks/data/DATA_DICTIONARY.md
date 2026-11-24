@@ -44,9 +44,21 @@ The notebook's analysis set further restricts `kept` to the **320 grid
 combos** (user decision 2026-11-24): the exploratory 200-ep probe is
 excluded from aggregates and shown as budget-curve evidence only.
 
+**Soft-deleted runs = the user's manual curation (discovered
+2026-11-24)**: the extract uses MLflow's ALL view, which includes
+soft-deleted runs — the UI (Active-only default) shows 323 of the 460.
+The 137 deletions are an earlier manual cleanup from the UI and they
+match this extract's cleaning policy exactly, run by run: all
+`50-samples` debug (68), all param-less (24), all 44 keep-last
+duplicate losers, and the 200-ep probe. The active set (323 = 320
+grid + 3 tst; per refit 83/80/80/80) is **run-identical** to the
+notebook's analysis set (verified against the server).
+
 ## `runs.csv` (461 lines; one row per run, ALL runs)
 
-- `run_id`, `run_name`, `status`, `start_time_iso`, `start_time_ms` — identity.
+- `run_id`, `run_name`, `status`, `lifecycle_stage` (active/deleted),
+  `start_time_iso` (**UTC**; cluster local time = UTC−3), `start_time_ms` —
+  identity.
 - `group`, `kept_in_clean_set` (True/False/"" — only sweep runs get a value),
   `has_valid_final_mse` — cleaning flags.
 - `combo` — `refit|latent_init|lr=<lr>|ep=<epochs>` (sweep runs only).

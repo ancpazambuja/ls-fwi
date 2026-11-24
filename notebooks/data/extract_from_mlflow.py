@@ -49,7 +49,8 @@ DEFAULT_HISTORY_METRIC = "train_loss"
 
 IDENTITY = ["run_id", "run_name", "group", "kept_in_clean_set",
             "has_valid_metrics", "combo", "refit_short", "arch_family",
-            "kernel", "seed", "start_time_iso", "start_time_ms", "status"]
+            "kernel", "seed", "start_time_iso", "start_time_ms", "status",
+            "lifecycle_stage"]
 PARAMS = ["latent_init", "lr", "max_epochs", "lr_scheduler", "patience",
           "model_size", "test_perc"]
 
@@ -183,6 +184,7 @@ def main():
             "test_perc": params.get("_x_test_perc", ""),
             "start_time_iso": iso(start_ms), "start_time_ms": start_ms,
             "status": info.get("status", ""),
+            "lifecycle_stage": info.get("lifecycle_stage", ""),
         })
         param_dicts.append(params)
         metric_dicts.append(metrics)
