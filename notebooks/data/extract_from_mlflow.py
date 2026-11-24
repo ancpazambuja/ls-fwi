@@ -21,12 +21,17 @@ default view is ACTIVE_ONLY: deleted runs are never used as results and
 never re-extracted.
 
 Produces in --out-dir:
-    runs.csv                  one row per run (ALL runs, with cleaning flags)
-    train_loss_history.csv    per-step history of --history-metric, clean kept runs
-    inversion_per_model.csv   per-model scalars for the clean kept runs (from the
-                              *_values metric series; step t = t-th smallest
-                              inverted index, per task_processing.log_evaluation_results)
-    refit_baselines.csv       the refit models' final metrics (all metric keys)
+    runs.csv                      one row per run (ACTIVE runs, with cleaning flags)
+    train_loss_per_example.csv    per-step loss history SEGMENTED per target
+                                  example (a run's train_loss metric interleaves
+                                  one trajectory per inverted example)
+    inversion_per_model.csv       per-example scalars for the clean kept runs
+                                  (from the *_values metric series; step t =
+                                  t-th smallest inverted index, per
+                                  task_processing.log_evaluation_results)
+    inverted_examples.csv         holdout position -> dataset example index,
+                                  per refit ML model
+    refit_baselines.csv           the refit ML models' final metrics (all keys)
 
 Group conventions (from the run naming; see DATA_DICTIONARY.md):
     tst__ prefix            -> tst_sanity   (sanity/debug runs)
@@ -223,6 +228,7 @@ def main():
         km = KERNEL_RE.search(d["info"].get("run_name", "") or "")
         reg["kernel"] = int(km.group(1)) if km else ""
         reg["seed"] = params.get("_x_seed", "")
+        reg["test_indexes"] = params.get("_x_test_indexes", "")
         reg["metrics"] = {m["key"]: m["value"] for m in d["data"].get("metrics", [])}
     for r in rows:
         reg = registry.get(r["refit_short"])
@@ -268,37 +274,59 @@ def main():
     os.makedirs(args.out_dir, exist_ok=True)
     write_csv(os.path.join(args.out_dir, "runs.csv"), fields, rows)
 
-    # ---- per-step history for the clean kept runs
+    # ---- per-example loss histories: a run's train_loss metric interleaves
+    # THREE trajectories (one per target example — the processing loop logs
+    # the history inside the inversion loop, so steps restart per example).
+    # Sort by timestamp and split at step decreases; segment k belongs to
+    # sorted(models_to_invert)[k].
+    model_ids = sorted(int(x) for x in args.models_to_invert.split(","))
     hist_fields = ["run_id", "combo", "refit_short", "latent_init", "lr",
-                   "max_epochs", "step", "value"]
-    hist_path = os.path.join(args.out_dir, "train_loss_history.csv")
+                   "max_epochs", "model_step", "model_idx", "step", "value"]
+    hist_path = os.path.join(args.out_dir, "train_loss_per_example.csv")
     n_rows, n_failed = 0, 0
     with open(hist_path, "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(hist_fields)
         for i, row in enumerate(sorted(kept, key=lambda r: r["combo"]), 1):
             try:
-                hist = fetch_history(uri, row["run_id"], args.history_metric)
+                pts = fetch_history(uri, row["run_id"], args.history_metric)
             except Exception as e:
                 print(f"  history FAILED {row['combo']}: {e}")
                 n_failed += 1
                 continue
-            for m in hist:
-                w.writerow([row["run_id"], row["combo"], row["refit_short"],
-                            row["latent_init"], row["lr"], row["max_epochs"],
-                            m.get("step", ""), m.get("value", "")])
-                n_rows += 1
+            pts = sorted(pts, key=lambda m: (m.get("timestamp", 0), m.get("step", 0)))
+            segments, cur, prev_step = [], [], None
+            for m in pts:
+                st = m.get("step", 0)
+                if prev_step is not None and st < prev_step:
+                    segments.append(cur)
+                    cur = []
+                cur.append(m)
+                prev_step = st
+            if cur:
+                segments.append(cur)
+            if len(segments) != len(model_ids):
+                print(f"  history SEGMENTS {len(segments)} != {len(model_ids)} "
+                      f"for {row['combo']}")
+                n_failed += 1
+                continue
+            for seg_i, seg in enumerate(segments):
+                for m in seg:
+                    w.writerow([row["run_id"], row["combo"], row["refit_short"],
+                                row["latent_init"], row["lr"], row["max_epochs"],
+                                seg_i, model_ids[seg_i],
+                                m.get("step", ""), m.get("value", "")])
+                    n_rows += 1
             if i % 50 == 0:
                 print(f"  histories {i}/{len(kept)}")
                 f.flush()
-    print(f"history rows: {n_rows} across {len(kept) - n_failed} runs "
+    print(f"per-example history rows: {n_rows} across {len(kept) - n_failed} runs "
           f"(metric: {args.history_metric})")
 
-    # ---- per-model results: the *_values metrics carry the per-model scalars,
-    # logged with step = position in the sorted inverted-model list
-    # (task_processing.log_evaluation_results: enumerate over the per-model
+    # ---- per-example results: the *_values metrics carry the per-example
+    # scalars, logged with step = position in the sorted inverted-model list
+    # (task_processing.log_evaluation_results: enumerate over the per-example
     # values). step t -> sorted(models_to_invert)[t].
-    model_ids = sorted(int(x) for x in args.models_to_invert.split(","))
     VALUES_METRICS = ["inversion_mse_values", "inversion_mae_values",
                       "inversion_ssim_values"]
     pm_fields = ["run_id", "combo", "refit_short", "arch_family", "kernel",
@@ -360,6 +388,23 @@ def main():
         base_rows.append(row)
     write_csv(os.path.join(args.out_dir, "refit_baselines.csv"),
               base_fields + base_metric_keys, base_rows)
+
+    # ---- inverted-example identity: holdout position -> dataset example index
+    # (positions are 0-based indices into the refit's cropped test split)
+    ex_fields = ["refit_run_id", "refit_short", "arch_family", "kernel", "seed",
+                 "holdout_size", "model_step", "example_pos", "dataset_example_idx"]
+    ex_rows = []
+    for short, reg in sorted(registry.items()):
+        idxs = [int(x) for x in re.findall(r"\d+", reg.get("test_indexes", ""))]
+        for step_i, pos in enumerate(model_ids):
+            ex_rows.append({
+                "refit_run_id": reg["full"], "refit_short": short,
+                "arch_family": reg["arch"], "kernel": reg["kernel"],
+                "seed": reg["seed"], "holdout_size": len(idxs),
+                "model_step": step_i, "example_pos": pos,
+                "dataset_example_idx": idxs[pos] if pos < len(idxs) else "",
+            })
+    write_csv(os.path.join(args.out_dir, "inverted_examples.csv"), ex_fields, ex_rows)
 
 
 if __name__ == "__main__":

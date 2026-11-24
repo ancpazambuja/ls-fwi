@@ -74,17 +74,24 @@ server).
 - `train_loss` — final optimization loss; `dur` — logged duration (**unit
   not verified**).
 
-## `train_loss_history.csv` (396,000 rows; the 320 clean runs)
+## `train_loss_per_example.csv` (396,000 rows; 320 runs × 3 examples)
 
 - `run_id`, `combo`, `refit_short`, `latent_init`, `lr`, `max_epochs` — join keys.
-- `step`, `value` — MLflow step counter and logged loss.
+- `model_step` (0/1/2), `model_idx` (1/10/20) — which target example the
+  trajectory belongs to (legacy `model` wording = example).
+- `step`, `value` — epoch step and loss of that example's own trajectory.
 
-**Caveat**: `step` is whatever the callback logged — it is **not guaranteed
-to be exactly one per epoch** and steps may repeat (multiple rows per step).
-For a clean curve: sort by `step`, take the last value per step. The loss is
-the optimization objective itself (model-space MSE against the 3 targets),
-so `train_loss` ≈ `inversion_mse_mean_test_set` at every point; the final
-`value` should match `runs.csv`'s `train_loss`.
+**Why segmented**: a run's `train_loss` metric interleaves THREE
+trajectories — the processing loop logs the history once per target
+example, under the same metric key, with steps restarting per example.
+Without segmentation there are 3 values per step and convergence plots
+are unreadable. The extractor sorts the history by timestamp and splits
+at step restarts (all 320 runs segmented into exactly 3 trajectories).
+**Caveat**: `step` is whatever the callback logged — not guaranteed
+exactly one per epoch, and steps may repeat; for a clean curve take the
+last value per step within (run, example). Each trajectory's loss is the
+optimization objective for THAT example (model-space MSE against it), so
+its final value ≈ that example's `mse` in `inversion_per_model.csv`.
 
 ## `inversion_per_model.csv` (960 rows = 320 runs × 3 targets)
 
@@ -97,6 +104,15 @@ so `train_loss` ≈ `inversion_mse_mean_test_set` at every point; the final
   `mse` values equals `inversion_mse_mean_test_set` exactly (0 mismatches /
   320 runs). Difficulty preview: model 10 is the hardest target (avg MSE
   0.0132 vs 0.0060 / 0.0073).
+
+## `inverted_examples.csv` (12 rows = 4 refit ML models × 3 positions)
+
+The identity of the three inverted target examples: `example_pos`
+(1/10/20 — 0-based position in the refit ML model's cropped test split)
+→ `dataset_example_idx` (the example's index in the 1000-example
+dataset). Per seed: 3×3 (seed 7) → 921/741/891; 5×5 (seed 79) →
+476/696/5; 7×7 and transencdec (seed 571) → 429/63/239 (shared split).
+The SAME position is a DIFFERENT dataset example across seeds.
 
 ## `refit_baselines.csv` (4 rows)
 
