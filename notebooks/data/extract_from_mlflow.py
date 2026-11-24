@@ -211,6 +211,11 @@ def main():
             r["seed"] = reg.get("seed", "")
 
     # ---- cleaning: keep-last per combo within the sweep group
+    # Selection is CHRONOLOGICAL ONLY (sort by start time, take the last):
+    # no metric/score is ever consulted, so no performance bias. The only
+    # exception, per the user's policy, is when the last run has no valid
+    # metrics — then fall back to the last *valid* run (never fired in the
+    # 2026-11 campaign: 0 fallbacks).
     by_combo = defaultdict(list)
     for row in rows:
         if row["group"] == "sweep_full_samples":
@@ -218,16 +223,16 @@ def main():
     kept = []
     for combo, rs in by_combo.items():
         rs.sort(key=lambda r: (r["start_time_ms"], r["run_id"]))
-        winner = rs[-1] if rs[-1]["has_valid_metrics"] else None
-        if winner is None:
+        kept_run = rs[-1] if rs[-1]["has_valid_metrics"] else None
+        if kept_run is None:
             for r in reversed(rs[:-1]):
                 if r["has_valid_metrics"]:
-                    winner = r
+                    kept_run = r
                     break
-        if winner is None:   # whole combo invalid: keep last anyway
-            winner = rs[-1]
-        winner["kept_in_clean_set"] = True
-        kept.append(winner)
+        if kept_run is None:   # whole combo invalid: keep last anyway
+            kept_run = rs[-1]
+        kept_run["kept_in_clean_set"] = True
+        kept.append(kept_run)
     for row in rows:   # non-kept sweep rows are explicit False (never empty)
         if row["group"] == "sweep_full_samples" and row["kept_in_clean_set"] == "":
             row["kept_in_clean_set"] = False
