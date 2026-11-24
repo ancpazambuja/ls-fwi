@@ -92,6 +92,14 @@ exactly one per epoch, and steps may repeat; for a clean curve take the
 last value per step within (run, example). Each trajectory's loss is the
 optimization objective for THAT example (model-space MSE against it), so
 its final value ≈ that example's `mse` in `inversion_per_model.csv`.
+**`train_loss` vs the reported `mse`** (checked 2026-11-24): the
+trajectory's final loss and that example's final `mse` agree closely —
+median relative gap +2.1%, positive in 893/960 cases — because the loss
+is computed in *train* mode (dropout active in the generator) while the
+reported `mse` is an eval-mode forward pass. A minority of runs deviate
+strongly (down to −89%), consistent with batch-norm train/eval mismatch
+on single-example batches (not yet verified). The plotted curves are
+the optimization objective, not exactly the final prediction error.
 
 ## `inversion_per_model.csv` (960 rows = 320 runs × 3 targets)
 
