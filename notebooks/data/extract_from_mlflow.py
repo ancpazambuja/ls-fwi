@@ -14,6 +14,12 @@ Usage:
         --experiment-id 42 --out-dir notebooks/data/exp42 \
         [--mlflow-uri http://host:port] [--history-metric train_loss]
 
+**Standing rule (user, 2026-11-24, applies forever)**: obsolete/play runs
+are deleted from MLflow before results are taken, and kept test runs are
+RENAMED to distinguish them from final experiment runs. Therefore the
+default view is ACTIVE_ONLY: deleted runs are never used as results and
+never re-extracted.
+
 Produces in --out-dir:
     runs.csv                  one row per run (ALL runs, with cleaning flags)
     train_loss_history.csv    per-step history of --history-metric, clean kept runs
@@ -72,11 +78,11 @@ def api(uri, path, payload=None):
         return json.load(r)
 
 
-def fetch_all_runs(uri, experiment_id):
+def fetch_all_runs(uri, experiment_id, view_type):
     runs, token = [], None
     while True:
         payload = {"experiment_ids": [experiment_id], "max_results": 1000,
-                   "run_view_type": "ALL"}
+                   "run_view_type": view_type}
         if token:
             payload["page_token"] = token
         d = api(uri, "/runs/search", payload)
@@ -143,6 +149,10 @@ def main():
     ap.add_argument("--mlflow-uri", default=DEFAULT_URI)
     ap.add_argument("--out-dir", default=os.path.dirname(os.path.abspath(__file__)))
     ap.add_argument("--history-metric", default=DEFAULT_HISTORY_METRIC)
+    ap.add_argument("--run-view-type", default="ACTIVE_ONLY",
+                    choices=["ACTIVE_ONLY", "DELETED_ONLY", "ALL"],
+                    help="standing rule: results come from ACTIVE runs only; "
+                         "deleted runs are never used")
     ap.add_argument("--models-to-invert", default="1,10,20",
                     help="comma-separated inverted-model indices, in the order "
                          "they appear in the processing code; step t of the "
@@ -150,8 +160,9 @@ def main():
     args = ap.parse_args()
     uri = args.mlflow_uri.rstrip("/")
 
-    raw = fetch_all_runs(uri, args.experiment_id)
-    print(f"fetched {len(raw)} runs from experiment {args.experiment_id}")
+    raw = fetch_all_runs(uri, args.experiment_id, args.run_view_type)
+    print(f"fetched {len(raw)} runs ({args.run_view_type}) from experiment "
+          f"{args.experiment_id}")
 
     # ---- pass 1: build run rows, keep params/metrics dicts for column unions
     rows, param_dicts, metric_dicts = [], [], []

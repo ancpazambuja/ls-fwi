@@ -23,44 +23,40 @@ example** (an in-distribution manifold point) — *not* the encoder's latent
 of the target; the example is chosen by the same seed that controls the
 split.
 
-## Cleaning policy (user-confirmed 2026-11-24)
+## Run lifecycle and cleaning (standing rule, user 2026-11-24 — valid forever)
 
-| `group` | Meaning | Count |
-|---|---|---|
-| `sweep_full_samples` | parameterized, full-samples, non-`tst` runs — the sweep | 365 |
-| `debug_50samples` | `50-samples` in name — debugging runs, **skip** | 68 |
-| `tst_sanity` | `tst__inverting_on_train_dataset…` — sanity (train-split targets) | 3 |
-| `param_less` | no logged params (earlier launcher generation), kept for the record | 24 |
+**Standing rule**: the user plays with the code before real experiments,
+so obsolete/wrong runs happen; they are deleted from MLflow before
+results are taken, and test runs worth keeping are RENAMED to
+distinguish them from final experiment runs. **All searches and
+extracts for results use ACTIVE runs only — deleted runs are never
+used as results** (they may remain in MLflow; the extractor's default
+is `--run-view-type ACTIVE_ONLY`).
 
-Within `sweep_full_samples`, per combo keep the **LAST** run (by start time)
-unless it lacks a valid final MSE → `kept_in_clean_set=True` for **321**
-combos (320 grid + 1 exploratory `trained|lr=1.0|ep=200`); the other **44**
-are duplicates, flagged `False` (they remain in MLflow — re-runs share
-the same latent init, because the seed controls both the split and the
-latent draw; they are numerical replicates whose spread is the
-run-to-run noise floor). 460 = 365 + 68 + 3 + 24.
+This campaign's history: it originally held 460 runs; a manual UI
+cleanup soft-deleted 137 (all 68 `50-samples` debug runs, all 24
+param-less early-launcher runs, all 44 duplicate re-run losers, and the
+200-ep probe), leaving 323 active. The extract (ACTIVE_ONLY) contains:
 
-The notebook's analysis set further restricts `kept` to the **320 grid
-combos** (user decision 2026-11-24): the exploratory 200-ep probe is
-excluded from aggregates and shown as budget-curve evidence only.
+| `group` | runs |
+|---|---|
+| `sweep_full_samples` | 320 — the complete 4×5×4 grid × 4 refit models |
+| `tst_sanity` | 3 (deliberately kept; not part of the sweep) |
 
-**Soft-deleted runs = the user's manual curation (discovered
-2026-11-24)**: the extract uses MLflow's ALL view, which includes
-soft-deleted runs — the UI (Active-only default) shows 323 of the 460.
-The 137 deletions are an earlier manual cleanup from the UI and they
-match this extract's cleaning policy exactly, run by run: all
-`50-samples` debug (68), all param-less (24), all 44 keep-last
-duplicate losers, and the 200-ep probe. The active set (323 = 320
-grid + 3 tst; per refit 83/80/80/80) is **run-identical** to the
-notebook's analysis set (verified against the server).
+`kept_in_clean_set` is True for all 320 (one run per combo — the
+duplicate re-runs, now deleted, were numerical replicates: same latent
+init, measured spread 0 except at the lr=1.0 batch switch of Nov 12,
+15:26–15:45 local; see docs/refactor-plan.md). The 320 active grid
+runs are **run-identical** to the analysis set (verified against the
+server).
 
-## `runs.csv` (461 lines; one row per run, ALL runs)
+## `runs.csv` (324 lines; one row per run, ACTIVE runs only)
 
 - `run_id`, `run_name`, `status`, `lifecycle_stage` (active/deleted),
   `start_time_iso` (**UTC**; cluster local time = UTC−3), `start_time_ms` —
   identity.
-- `group`, `kept_in_clean_set` (True/False/"" — only sweep runs get a value),
-  `has_valid_final_mse` — cleaning flags.
+- `group`, `kept_in_clean_set` (True for all sweep runs — one run per combo
+  in the active view), `has_valid_metrics` — cleaning flags.
 - `combo` — `refit|latent_init|lr=<lr>|ep=<epochs>` (sweep runs only).
 - `refit_short`, `arch_family` (encdec/transencdec), `kernel` (3/5/7),
   `seed` (7/79/571) — refit-lineage columns.
@@ -74,7 +70,7 @@ notebook's analysis set (verified against the server).
 - `train_loss` — final optimization loss; `dur` — logged duration (**unit
   not verified**).
 
-## `train_loss_history.csv` (396,601 rows; clean kept runs only)
+## `train_loss_history.csv` (396,000 rows; the 320 clean runs)
 
 - `run_id`, `combo`, `refit_short`, `latent_init`, `lr`, `max_epochs` — join keys.
 - `step`, `value` — MLflow step counter and logged loss.
@@ -86,7 +82,7 @@ the optimization objective itself (model-space MSE against the 3 targets),
 so `train_loss` ≈ `inversion_mse_mean_test_set` at every point; the final
 `value` should match `runs.csv`'s `train_loss`.
 
-## `inversion_per_model.csv` (963 rows = 321 runs × 3 targets)
+## `inversion_per_model.csv` (960 rows = 320 runs × 3 targets)
 
 - Join keys: `run_id`, `combo`, `refit_short`, `arch_family`, `kernel`,
   `seed`, `latent_init`, `lr`, `max_epochs` (as in `runs.csv`).
@@ -95,7 +91,7 @@ so `train_loss` ≈ `inversion_mse_mean_test_set` at every point; the final
 - `mse`, `mae`, `ssim` — that target's own scalars.
 - Consistency (verified at extraction): per run, the mean of the 3 per-model
   `mse` values equals `inversion_mse_mean_test_set` exactly (0 mismatches /
-  321 runs). Difficulty preview: model 10 is the hardest target (avg MSE
+  320 runs). Difficulty preview: model 10 is the hardest target (avg MSE
   0.0132 vs 0.0060 / 0.0073).
 
 ## `refit_baselines.csv` (4 rows)

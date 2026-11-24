@@ -37,6 +37,15 @@ data), never the training repo. Training runs record the
   the inversion takes the split from the refit (indices carried with the
   checkpoint/config) and uses an independent latent-init seed family, so
   J draws vary only the latent seed.
+- **Run lifecycle (user, standing decision 2026-11-24 — applies forever)**:
+  the user plays with the code before real experiments, so obsolete/wrong
+  runs happen; they are deleted from MLflow before results are taken, and
+  test runs worth keeping are RENAMED to distinguish them from final
+  experiment runs. Consequence for all tooling: result searches and
+  extracts use ACTIVE runs only; deleted runs are never used as results.
+  `notebooks/data/extract_from_mlflow.py` defaults to ACTIVE_ONLY; the
+  `seismic-ml-utils` MLflow helpers and the new repos' harnesses must
+  follow the same default.
 - **Environment**: the reference `dt2_v4` container for all repos; editable
   installs; Python packages named as above.
 - **Harness**: per-repo copies trimmed per stage; `run_info.txt` manifests
