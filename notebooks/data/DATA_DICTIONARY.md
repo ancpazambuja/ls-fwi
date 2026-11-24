@@ -20,7 +20,8 @@ logged as context (`_x_test_indexes`), not the inversion target set. All
 sweep runs share `lr_scheduler=cosine_annealing_wr` and `patience=300`.
 `latent_init=trained` = the latent of a **randomly chosen training-set
 example** (an in-distribution manifold point) — *not* the encoder's latent
-of the target.
+of the target; the example is chosen by the same seed that controls the
+split.
 
 ## Cleaning policy (user-confirmed 2026-11-24)
 
@@ -34,9 +35,10 @@ of the target.
 Within `sweep_full_samples`, per combo keep the **LAST** run (by start time)
 unless it lacks a valid final MSE → `kept_in_clean_set=True` for **321**
 combos (320 grid + 1 exploratory `trained|lr=1.0|ep=200`); the other **44**
-are duplicates, flagged `False` (they remain in MLflow — the `random`-init
-duplicates are distinct latent draws, relevant to the ADR-0002 J-draws
-protocol). 460 = 365 + 68 + 3 + 24.
+are duplicates, flagged `False` (they remain in MLflow — re-runs share
+the same latent init, because the seed controls both the split and the
+latent draw; they are numerical replicates whose spread is the
+run-to-run noise floor). 460 = 365 + 68 + 3 + 24.
 
 The notebook's analysis set further restricts `kept` to the **320 grid
 combos** (user decision 2026-11-24): the exploratory 200-ep probe is

@@ -28,7 +28,15 @@ data), never the training repo. Training runs record the
 - **Stochasticity** (ADR-0002): FMs — the paper's 10-seed MCCV
   (7, 79, 181, 307, 433, 571, 701, 853, 997, 1129). Inversions — J random
   latent-init draws per target model, reported mean±std; seed families
-  decoupled.
+  decoupled. **Seed-coupling constraint (user, 2026-11-24)**: in the
+  current `ls-fwi` code ONE seed controls both the train/test split and
+  the latent-init randomness (`random`/`randomn` draws, and which
+  training example `trained` starts from) — so this campaign has
+  effectively J=1 draw per (seed, config), and duplicates are numerical
+  replicates, not fresh draws. `reparameterized-fwi` must decouple them:
+  the inversion takes the split from the refit (indices carried with the
+  checkpoint/config) and uses an independent latent-init seed family, so
+  J draws vary only the latent seed.
 - **Environment**: the reference `dt2_v4` container for all repos; editable
   installs; Python packages named as above.
 - **Harness**: per-repo copies trimmed per stage; `run_info.txt` manifests
@@ -81,9 +89,12 @@ data), never the training repo. Training runs record the
   + 1 exploratory (`trained, lr=1.0, 200ep`; it fits the monotone budget
   trend 0.0044→0.0037 of its config). User decision 2026-11-24: the
   notebook's analysis set = the 320 grid combos; the probe stays as
-  budget-curve evidence only. Dropped duplicates
-  (mostly `random` inits = distinct latent draws, plus lr=0.5/1.0
-  re-runs) stay in MLflow for the ADR-0002 J-draws protocol.
+  budget-curve evidence only. Dropped duplicates are same-config re-runs:
+  the seed controls both the data split and the latent draw, so re-runs
+  share the same latent init — numerical replicates (measured relative
+  spread exactly 0 for most combos; exceptions sit at the stability edge
+  lr=1.0/ep=50, ≤5%). They confirm the sweep is deterministic per seed
+  and that the high-lr zeros degradation is real, not noise.
 
   **Headline results** (CLEAN set; final model-space MSE, mean over the
   4 refit models; each run = mean over its 3 inverted targets — the
