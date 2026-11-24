@@ -122,6 +122,16 @@ dataset). Per seed: 3×3 (seed 7) → 921/741/891; 5×5 (seed 79) →
 476/696/5; 7×7 and transencdec (seed 571) → 429/63/239 (shared split).
 The SAME position is a DIFFERENT dataset example across seeds.
 
+## `refit_per_example.csv` (396 rows = 4 refit ML models × 99 holdout steps)
+
+The refit ML models' **per-example prediction quality** on their own
+holdouts, recovered from the step-indexed `*_values` series (steps 0–98;
+the 100th holdout example is missing from the logs — all inversion
+positions 1/10/20 are present). Enables the difficulty-matched paired
+comparison: the refit's prediction MSE for an example vs the inversion's
+recovery of the same example. Cross-checked: the series mean/min/max
+match the logged `mse_mean/min/max_test_set` exactly.
+
 ## `refit_baselines.csv` (4 rows)
 
 The refit models' own test metrics on the **same 100-model holdouts**:

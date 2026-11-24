@@ -406,6 +406,39 @@ def main():
             })
     write_csv(os.path.join(args.out_dir, "inverted_examples.csv"), ex_fields, ex_rows)
 
+    # ---- refit per-example metrics: the refit runs' *_values series are
+    # step-indexed over their ~100-example holdouts (99 points observed;
+    # one example appears to be missing from the logs). The inversion
+    # positions (1/10/20) are all present, enabling the difficulty-matched
+    # paired comparison.
+    rpe_fields = ["refit_run_id", "refit_short", "arch_family", "kernel", "seed",
+                  "step", "mse", "mae", "ssim"]
+    rpe_rows = []
+    for short, reg in sorted(registry.items()):
+        series = {}
+        try:
+            for k in ("mse_values", "mae_values", "ssim_values"):
+                series[k] = sorted(fetch_history(uri, reg["full"], k),
+                                   key=lambda m: m.get("step", 0))
+        except Exception as e:
+            print(f"  refit per-example FAILED {short}: {e}")
+            continue
+        steps = [m.get("step") for m in series["mse_values"]]
+        missing = sorted(set(range(max(steps) + 1)) - set(steps))
+        if missing:
+            print(f"  {short}: holdout steps missing from logs: {missing}")
+        for t, m in enumerate(series["mse_values"]):
+            rpe_rows.append({
+                "refit_run_id": reg["full"], "refit_short": short,
+                "arch_family": reg["arch"], "kernel": reg["kernel"],
+                "seed": reg["seed"], "step": m.get("step", ""),
+                "mse": m.get("value", ""),
+                "mae": series["mae_values"][t].get("value", "") if t < len(series["mae_values"]) else "",
+                "ssim": series["ssim_values"][t].get("value", "") if t < len(series["ssim_values"]) else "",
+            })
+        print(f"  {short}: {len(steps)} per-example points (steps {steps[0]}..{steps[-1]})")
+    write_csv(os.path.join(args.out_dir, "refit_per_example.csv"), rpe_fields, rpe_rows)
+
 
 if __name__ == "__main__":
     main()
