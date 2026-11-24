@@ -15,9 +15,12 @@ Usage:
         [--mlflow-uri http://host:port] [--history-metric train_loss]
 
 Produces in --out-dir:
-    runs.csv                one row per run (ALL runs, with cleaning flags)
-    train_loss_history.csv  per-step history of --history-metric, clean kept runs
-    refit_baselines.csv     the refit models' final metrics (all metric keys)
+    runs.csv                  one row per run (ALL runs, with cleaning flags)
+    train_loss_history.csv    per-step history of --history-metric, clean kept runs
+    inversion_per_model.csv   per-model scalars for the clean kept runs (from the
+                              *_values metric series; step t = t-th smallest
+                              inverted index, per task_processing.log_evaluation_results)
+    refit_baselines.csv       the refit models' final metrics (all metric keys)
 
 Group conventions (from the run naming; see DATA_DICTIONARY.md):
     tst__ prefix            -> tst_sanity   (sanity/debug runs)
@@ -139,6 +142,10 @@ def main():
     ap.add_argument("--mlflow-uri", default=DEFAULT_URI)
     ap.add_argument("--out-dir", default=os.path.dirname(os.path.abspath(__file__)))
     ap.add_argument("--history-metric", default=DEFAULT_HISTORY_METRIC)
+    ap.add_argument("--models-to-invert", default="1,10,20",
+                    help="comma-separated inverted-model indices, in the order "
+                         "they appear in the processing code; step t of the "
+                         "*_values metric series maps to the t-th smallest index")
     args = ap.parse_args()
     uri = args.mlflow_uri.rstrip("/")
 
@@ -273,6 +280,60 @@ def main():
                 f.flush()
     print(f"history rows: {n_rows} across {len(kept) - n_failed} runs "
           f"(metric: {args.history_metric})")
+
+    # ---- per-model results: the *_values metrics carry the per-model scalars,
+    # logged with step = position in the sorted inverted-model list
+    # (task_processing.log_evaluation_results: enumerate over the per-model
+    # values). step t -> sorted(models_to_invert)[t].
+    model_ids = sorted(int(x) for x in args.models_to_invert.split(","))
+    VALUES_METRICS = ["inversion_mse_values", "inversion_mae_values",
+                      "inversion_ssim_values"]
+    pm_fields = ["run_id", "combo", "refit_short", "arch_family", "kernel",
+                 "seed", "latent_init", "lr", "max_epochs", "model_step",
+                 "model_idx", "mse", "mae", "ssim"]
+    pm_path = os.path.join(args.out_dir, "inversion_per_model.csv")
+    n_pm, n_pm_failed = 0, 0
+    with open(pm_path, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=pm_fields)
+        w.writeheader()
+        for i, row in enumerate(sorted(kept, key=lambda r: r["combo"]), 1):
+            try:
+                series = {k: fetch_history(uri, row["run_id"], k)
+                          for k in VALUES_METRICS}
+            except Exception as e:
+                print(f"  per-model FAILED {row['combo']}: {e}")
+                n_pm_failed += 1
+                continue
+            ordered, ok = {}, True
+            for k, pts in series.items():
+                pts = sorted(pts, key=lambda m: m.get("step", 0))
+                vals = [m.get("value", "") for m in pts]
+                if len(vals) != len(model_ids):
+                    ok = False
+                    break
+                ordered[k] = vals
+            if not ok:
+                print(f"  per-model SKIPPED {row['combo']}: "
+                      f"expected {len(model_ids)} values per metric")
+                n_pm_failed += 1
+                continue
+            for t, idx in enumerate(model_ids):
+                w.writerow({
+                    "run_id": row["run_id"], "combo": row["combo"],
+                    "refit_short": row["refit_short"],
+                    "arch_family": row["arch_family"], "kernel": row["kernel"],
+                    "seed": row["seed"], "latent_init": row["latent_init"],
+                    "lr": row["lr"], "max_epochs": row["max_epochs"],
+                    "model_step": t, "model_idx": idx,
+                    "mse": ordered["inversion_mse_values"][t],
+                    "mae": ordered["inversion_mae_values"][t],
+                    "ssim": ordered["inversion_ssim_values"][t],
+                })
+                n_pm += 1
+            if i % 50 == 0:
+                print(f"  per-model {i}/{len(kept)}")
+                f.flush()
+    print(f"per-model rows: {n_pm} across {len(kept) - n_pm_failed} runs")
 
     # ---- refit baselines: all metric keys of each refit run
     base_fields = ["refit_run_id", "refit_short", "arch_family", "kernel", "seed"]

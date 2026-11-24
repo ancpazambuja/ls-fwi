@@ -72,6 +72,18 @@ the optimization objective itself (model-space MSE against the 3 targets),
 so `train_loss` ≈ `inversion_mse_mean_test_set` at every point; the final
 `value` should match `runs.csv`'s `train_loss`.
 
+## `inversion_per_model.csv` (963 rows = 321 runs × 3 targets)
+
+- Join keys: `run_id`, `combo`, `refit_short`, `arch_family`, `kernel`,
+  `seed`, `latent_init`, `lr`, `max_epochs` (as in `runs.csv`).
+- `model_step` (0/1/2), `model_idx` (1/10/20) — the target's position in the
+  sorted `models_to_invert` list.
+- `mse`, `mae`, `ssim` — that target's own scalars.
+- Consistency (verified at extraction): per run, the mean of the 3 per-model
+  `mse` values equals `inversion_mse_mean_test_set` exactly (0 mismatches /
+  321 runs). Difficulty preview: model 10 is the hardest target (avg MSE
+  0.0132 vs 0.0060 / 0.0073).
+
 ## `refit_baselines.csv` (4 rows)
 
 The refit models' own test metrics on the **same 100-model holdouts**:
@@ -85,9 +97,12 @@ SSIM 0.89–0.91).
    end; with `cosine_annealing_wr` that can be a peak-lr (hot) point.
    Best-so-far from the history is the honest comparison — quantified in
    the notebook (user-confirmed issue; to be fixed for final experiments).
-2. The `*_values` columns are kept as logged but their **semantics are
-   unclear** (a scalar, not the per-model list) — do not use them without
-   checking the logging code first.
+2. The `*_values` columns in `runs.csv` are **not** aggregates: they are the
+   per-model series, logged with `step` = position in the sorted
+   inverted-model list (`log_evaluation_results`); the "latest value" that
+   `runs/search` returns is just the last model's value. The full series is
+   extracted step-by-step into `inversion_per_model.csv` (step t → the t-th
+   smallest inverted index; `--models-to-invert`, default `1,10,20`).
 3. Metrics are in the pipeline's logged (post-preprocessing) model space;
    if units matter, check `src/preprocessing/pipeline.py`.
 4. `test_perc=0.1` for all sweep runs; the logged test-index lists have 100
