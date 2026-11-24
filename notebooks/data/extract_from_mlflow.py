@@ -46,7 +46,7 @@ DEFAULT_HISTORY_METRIC = "train_loss"
 
 IDENTITY = ["run_id", "run_name", "group", "kept_in_clean_set",
             "has_valid_metrics", "combo", "refit_short", "arch_family",
-            "kernel", "seed"]
+            "kernel", "seed", "start_time_iso", "start_time_ms", "status"]
 PARAMS = ["latent_init", "lr", "max_epochs", "lr_scheduler", "patience",
           "model_size", "test_perc"]
 
