@@ -46,6 +46,11 @@ data), never the training repo. Training runs record the
   `notebooks/data/extract_from_mlflow.py` defaults to ACTIVE_ONLY; the
   `seismic-ml-utils` MLflow helpers and the new repos' harnesses must
   follow the same default.
+- **Vocabulary (user, per the inversion paper — applies everywhere)**:
+  "model" = an ML model; "example" / "velocity model" = a dataset item.
+  Canonical definitions live in `GLOSSARY.md`; legacy code identifiers
+  (`models_to_invert`, `model_idx`, `inversion_per_model.csv`) keep their
+  names until the refactor repos adopt the vocabulary natively.
 - **Environment**: the reference `dt2_v4` container for all repos; editable
   installs; Python packages named as above.
 - **Harness**: per-repo copies trimmed per stage; `run_info.txt` manifests
@@ -79,7 +84,7 @@ data), never the training repo. Training runs record the
   budgets {50, 100, 500, 1000} (plus exploratory 20/25/200) × 4 refit
   models — encdec 3×3 (seed 7, `6d115baa…`), encdec 5×5 (seed 79,
   `9247757e…`), encdec 7×7 (seed 571, `b01fdd28…`), transencdec 5×5
-  (seed 571, `32409900…`) — each inverting the SAME 3 target models:
+  (seed 571, `32409900…`) — each inverting the SAME 3 target examples:
   the hardcoded inverted test indices `[1, 10, 20]`
   (`task_processing.py: models_to_invert`), hand-picked difficult
   examples from the refit's test set. The refit's 10% MCCV holdout
@@ -128,12 +133,12 @@ data), never the training repo. Training runs record the
   (0.0049–0.0054 → 0.0046–0.0048 @1000ep); @lr=1e-3 slow, still
   improving @1000ep (0.0057). Per refit (clean grid): all-mean
   0.0086–0.0093, min 0.0037 (3×3) … 0.0047 (7×7) — architecture matters
-  little. Baseline (refit run metrics, mean over its 100-model holdout):
+  little. Baseline (refit run metrics, mean over its 100-example holdout):
   MSE 0.00083–0.00117, SSIM 0.89–0.91. **Signal: OOD latent inits reach
   the manifold (random ≈ trained within ~5%); open question — every init
   plateaus ~4–5× above the refit MSE, now known to have THREE candidate
   contributors: difficulty-selected targets (3 hard examples vs a
-  100-model mean), the warm-restart final-state artifact, and a true
+  100-example mean), the warm-restart final-state artifact, and a true
   optimization limit (see deliverables).** (Retracted: the earlier
   "trained best 0.0040 @ ep=200" was a `50-samples` debug run.)
 
@@ -144,8 +149,8 @@ data), never the training repo. Training runs record the
   CORRECTION (user, 2026-11-24): every sweep run inverts the same 3
   hand-picked difficult targets ([1, 10, 20], hardcoded in
   `task_processing.py`), while the refit baseline is a mean over its
-  100-model holdout — the comparison is difficulty-MISMATCHED and the
-  inversion-vs-refit gap is inflated. The fair form is a per-model
+  100-example holdout — the comparison is difficulty-MISMATCHED and the
+  inversion-vs-refit gap is inflated. The fair form is a per-example
   paired comparison against the refit's metrics for [1, 10, 20]
   (final-experiments checklist).
   (ii) The final-state-at-peak-lr reporting issue is confirmed real:
@@ -182,7 +187,7 @@ data), never the training repo. Training runs record the
   VAE + possibly other FMs)**: (1) fix final-state reporting —
   best-so-far checkpointing or a cold schedule end; (2) add an
   `init=encoder-of-target` variant to measure the manifold-coverage
-  ceiling directly in the inversion framework; (3) per-model paired
+  ceiling directly in the inversion framework; (3) per-example paired
   difficulty analysis (interpretation note i); (4) 10-seed MCCV per
   ADR-0002.
 - Days 6–7: buffer.

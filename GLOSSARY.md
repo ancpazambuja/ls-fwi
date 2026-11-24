@@ -1,6 +1,6 @@
 # Velocity Foundation Model Research
 
-Glossary for the reparameterized-FWI research program and its three-repo
+Glossary for the reparameterized-FWI research program and its four-repo
 structure. Definitions only — no implementation details.
 
 ## Repositories
@@ -37,6 +37,17 @@ split; authoritative for nothing.
 _Avoid_: the main repo, the project repo
 
 ## Research concepts
+
+**Model**:
+An ML model — a trained network (encoder, generator, foundation model).
+Reserved for machine-learning models.
+_Avoid_: using "model" for a dataset item (say "example" or "velocity model")
+
+**Example (velocity model)**:
+A dataset item: one velocity field of the deep-tomography dataset, in its
+train/valid/test split. "Velocity model" when emphasizing the physical
+object; "example" when counting or indexing.
+_Avoid_: model (for dataset items); sample (legacy launcher naming only)
 
 **Foundation model (FM)**:
 A generative model over velocity models (autoencoder, VAE) trained on the
