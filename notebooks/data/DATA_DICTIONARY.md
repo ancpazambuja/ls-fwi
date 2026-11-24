@@ -12,9 +12,12 @@ The AE loop's fast-fail study: for each of **4 refit models** — encdec 3×3
 **trivial inversion** (optimize the latent z so `Generator(z)` matches each
 true target model; model-space MSE loss) over a full factorial:
 **4 latent inits × 5 lrs × 4 epoch budgets** = 80 configs per refit model.
-Each run inverts the refit model's **100-model test set** (its 10% MCCV
-holdout, seed-matched; 900/100 split of the 1000-sample dataset). All sweep
-runs share `lr_scheduler=cosine_annealing_wr` and `patience=300`.
+Each run inverts **the SAME 3 target models**: the hardcoded inverted test
+indices `[1, 10, 20]` (`task_processing.py: models_to_invert`), hand-picked
+deliberately difficult examples from the refit's test set. The refit's 10%
+MCCV holdout (100 models; 900/100 split of the 1000-sample dataset) is
+logged as context (`_x_test_indexes`), not the inversion target set. All
+sweep runs share `lr_scheduler=cosine_annealing_wr` and `patience=300`.
 `latent_init=trained` = the latent of a **randomly chosen training-set
 example** (an in-distribution manifold point) — *not* the encoder's latent
 of the target.
@@ -47,8 +50,9 @@ protocol). 460 = 365 + 68 + 3 + 24.
   (parameter count), `test_perc` — sweep parameters (empty for `param_less`).
 - Final metrics (MLflow "latest value" = **final state at schedule end**):
   `inversion_{mse,mae,ssim}_{mean,min,max,std}_test_set` — mean/min/max/std
-  over the run's 100 test models. `min/max/std` quantify the per-model
-  difficulty spread (easy models invert much better than hard ones).
+  over the run's **3 inverted targets** ([1, 10, 20], hand-picked difficult
+  examples). With only 3 targets, `min/max` bracket the difficulty range of
+  those specific models — they are NOT a 100-model difficulty survey.
 - `train_loss` — final optimization loss; `dur` — logged duration (**unit
   not verified**).
 
@@ -60,7 +64,7 @@ protocol). 460 = 365 + 68 + 3 + 24.
 **Caveat**: `step` is whatever the callback logged — it is **not guaranteed
 to be exactly one per epoch** and steps may repeat (multiple rows per step).
 For a clean curve: sort by `step`, take the last value per step. The loss is
-the optimization objective itself (model-space MSE against the 100 targets),
+the optimization objective itself (model-space MSE against the 3 targets),
 so `train_loss` ≈ `inversion_mse_mean_test_set` at every point; the final
 `value` should match `runs.csv`'s `train_loss`.
 
@@ -85,3 +89,9 @@ SSIM 0.89–0.91).
 4. `test_perc=0.1` for all sweep runs; the logged test-index lists have 100
    entries per seed — the `debug_50samples` name segment does **not** match
    the logged indexes (one reason they are excluded as debug runs).
+5. **Difficulty mismatch**: all sweep runs invert the same 3 hand-picked
+   difficult targets, while `refit_baselines.csv` is a mean over the
+   100-model holdout — inversion-vs-refit comparisons are
+   difficulty-mismatched and the gap is inflated. The fair form is a
+   per-model paired comparison against the refit's metrics for
+   [1, 10, 20] (final-experiments checklist).

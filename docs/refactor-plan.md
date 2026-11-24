@@ -62,9 +62,12 @@ data), never the training repo. Training runs record the
   budgets {50, 100, 500, 1000} (plus exploratory 20/25/200) × 4 refit
   models — encdec 3×3 (seed 7, `6d115baa…`), encdec 5×5 (seed 79,
   `9247757e…`), encdec 7×7 (seed 571, `b01fdd28…`), transencdec 5×5
-  (seed 571, `32409900…`) — each inverting its own 100-model test set
-  (the refit's 10% MCCV holdout, seed-matched; 900 train / 100 test of
-  the 1000-sample dataset). All sweep runs share
+  (seed 571, `32409900…`) — each inverting the SAME 3 target models:
+  the hardcoded inverted test indices `[1, 10, 20]`
+  (`task_processing.py: models_to_invert`), hand-picked difficult
+  examples from the refit's test set. The refit's 10% MCCV holdout
+  (100 models; 900/100 split of the 1000-sample dataset) is logged as
+  context (`_x_test_indexes`), not the inversion target set. All sweep runs share
   `lr_scheduler=cosine_annealing_wr` and `patience=300`. A 3-run sanity
   family (`tst__inverting_on_train_dataset`, refit 3×3) inverts
   *train*-split models. The 64 param-less runs are an earlier launcher
@@ -80,7 +83,8 @@ data), never the training repo. Training runs record the
   re-runs) stay in MLflow for the ADR-0002 J-draws protocol.
 
   **Headline results** (CLEAN set; final model-space MSE, mean over the
-  4 refit models; each run = mean over its 100-model test set; @1000ep):
+  4 refit models; each run = mean over its 3 inverted targets — the
+  hand-picked difficult examples [1, 10, 20]; @1000ep):
   trained 0.0065 @ lr=1e-3 then FLAT 0.0043–0.0044 for lr≥0.01 (best
   0.0043 @ 0.1) — lr-robust; zeros 0.0047 @ lr≤0.01 degrading to 0.0105
   @ 1.0; random 0.0045 @ lr=0.01–0.1; randomn 0.0045 @ 0.1. SSIM ≈ 0.87
@@ -88,21 +92,26 @@ data), never the training repo. Training runs record the
   (0.0049–0.0054 → 0.0046–0.0048 @1000ep); @lr=1e-3 slow, still
   improving @1000ep (0.0057). Per refit (clean grid): all-mean
   0.0086–0.0093, min 0.0037 (3×3) … 0.0047 (7×7) — architecture matters
-  little. Baseline, same 100-model holdouts (refit run metrics): MSE
-  0.00083–0.00117, SSIM 0.89–0.91. **Signal: OOD latent inits reach the
-  manifold (random ≈ trained within ~5%); open question — every init
-  plateaus ~4–5× above the refit MSE (schedule artifact vs true
-  optimization limit; see deliverables).** (Retracted: the earlier
+  little. Baseline (refit run metrics, mean over its 100-model holdout):
+  MSE 0.00083–0.00117, SSIM 0.89–0.91. **Signal: OOD latent inits reach
+  the manifold (random ≈ trained within ~5%); open question — every init
+  plateaus ~4–5× above the refit MSE, now known to have THREE candidate
+  contributors: difficulty-selected targets (3 hard examples vs a
+  100-model mean), the warm-restart final-state artifact, and a true
+  optimization limit (see deliverables).** (Retracted: the earlier
   "trained best 0.0040 @ ep=200" was a `50-samples` debug run.)
 
   **Interpretation notes (user, 2026-11-24)**:
   (i) Per-model difficulty: model-space MSE varies a lot across test
   examples — easy models reconstruct/invert much better (cf. the
   results section of "On the Calibration of Spatial Support in VMB").
-  Mean-vs-mean over the same 100-model holdouts is a fair comparison,
-  but single-model or hand-picked-difficult-model comparisons (as in
-  the early inversions) must be difficulty-matched. Final experiments
-  should report per-model paired comparisons, not only means.
+  CORRECTION (user, 2026-11-24): every sweep run inverts the same 3
+  hand-picked difficult targets ([1, 10, 20], hardcoded in
+  `task_processing.py`), while the refit baseline is a mean over its
+  100-model holdout — the comparison is difficulty-MISMATCHED and the
+  inversion-vs-refit gap is inflated. The fair form is a per-model
+  paired comparison against the refit's metrics for [1, 10, 20]
+  (final-experiments checklist).
   (ii) The final-state-at-peak-lr reporting issue is confirmed real:
   fix it for the FINAL experiments; this fast-fail analysis keeps the
   numbers as-is and carries the caveat.
