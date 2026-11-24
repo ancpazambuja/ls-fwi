@@ -91,10 +91,17 @@ data), never the training repo. Training runs record the
   notebook's analysis set = the 320 grid combos; the probe stays as
   budget-curve evidence only. Dropped duplicates are same-config re-runs:
   the seed controls both the data split and the latent draw, so re-runs
-  share the same latent init — numerical replicates (measured relative
-  spread exactly 0 for most combos; exceptions sit at the stability edge
-  lr=1.0/ep=50, ≤5%). They confirm the sweep is deterministic per seed
-  and that the high-lr zeros degradation is real, not noise.
+  share the same latent init — numerical replicates (relative spread
+  exactly 0 in 26 of 31 duplicated combos). The 5 exceptions (all refit
+  3×3, lr=1.0) trace to a systematic early-vs-late batch switch on
+  Nov 12 between 18:26:52 and 18:45:44: same inits (trained/random
+  first losses bit-identical), tiny divergence within the first epoch,
+  late batch bit-reproducible across hours; the seed/split/checkpoint/
+  params are ruled out — user investigating what changed (candidates:
+  device assignment, arithmetic-affecting code tweak). Importantly, the
+  keep-last rule kept only late-batch runs for all 5 spanning combos and
+  the 6-run A-batch is otherwise outside the clean set — the analysis
+  320 is behavior-consistent.
 
   **Headline results** (CLEAN set; final model-space MSE, mean over the
   4 refit models; each run = mean over its 3 inverted targets — the
