@@ -101,6 +101,22 @@ strongly (down to −89%), consistent with batch-norm train/eval mismatch
 on single-example batches (not yet verified). The plotted curves are
 the optimization objective, not exactly the final prediction error.
 
+**⚠ Update (2026-11-26) — the train-mode artifact is far larger than the
++2.1% tip**: the +2.1% only measures the trajectory's *last step*.
+During the whole campaign the generator ran in *train* mode during the
+latent optimization (dropout active, batch-norm batch statistics), so
+the optimization objective was stochastic and every curve plateaus at a
+**dropout noise floor** (~0.003–0.008) far above the representational
+floor. Control experiment (`marmousi01_read_view.ipynb`, cells 10–12):
+re-running the campaign's three targets with the same config but the
+generator pinned to eval (the `GeneratorInversion.train()` override)
+reaches **0.00011–0.00031** — 10× to 55× below the campaign's reported
+eval MSEs (0.0033–0.0060) — and the example-difficulty ordering changes.
+Consequences: all 320 campaign inversions are noise-floor-limited;
+their recovery and gap numbers are pessimistic/filtered through this
+artifact; any latent optimization must pin the generator to eval (the
+fix lives in `GeneratorInversion.train()`).
+
 ## `inversion_per_model.csv` (960 rows = 320 runs × 3 targets)
 
 - Join keys: `run_id`, `combo`, `refit_short`, `arch_family`, `kernel`,
