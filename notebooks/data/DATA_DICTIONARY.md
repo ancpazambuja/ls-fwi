@@ -116,6 +116,15 @@ Consequences: all 320 campaign inversions are noise-floor-limited;
 their recovery and gap numbers are pessimistic/filtered through this
 artifact; any latent optimization must pin the generator to eval (the
 fix lives in `GeneratorInversion.train()`).
+**Schedule × mode interaction (2×2 in the same notebook, 2026-11-26)**:
+the campaign's SGDR schedule (`CosineAnnealingWarmRestarts` T_0=68,
+T_mult=2, eta_min=1e-6) is destructive only in combination with train
+mode. With the generator pinned to eval, the campaign's own schedule
+reaches the same floor as constant lr (0.00028 vs 0.00027 on pos 1);
+in train mode it freezes the run at the noise floor (0.00532 vs 0.00050
+with constant lr). The eval-mode pin alone — schedule untouched —
+accounts for the full campaign-vs-fix gap (19.5×); after the pin, the
+lr schedule is a free knob.
 
 ## `inversion_per_model.csv` (960 rows = 320 runs × 3 targets)
 
